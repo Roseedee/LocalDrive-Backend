@@ -1,0 +1,27 @@
+{
+  "name": "localdrive-backend",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Roseedee/LocalDrive-Backend#readme",
+  "bugs": {
+    "url": "https://github.com/Roseedee/LocalDrive-Backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Roseedee/LocalDrive-Backend.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "nodemon": "^3.1.14"
+  }
+}
