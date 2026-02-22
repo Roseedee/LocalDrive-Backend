@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.send('Welcome to the LocalDrive API!');
-});
+const statusController = require('../controllers/status.controller');
+
+router.get('/', statusController.getStatus);
+
+router.get("/health", statusController.getHealth);
 
 module.exports = router;
