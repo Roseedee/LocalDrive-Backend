@@ -1,11 +1,17 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const cors = require("cors");
 
 const routes = require("./routes/routes");
 const loggerMiddleware = require("./middlewares/logger.middleware");
 
 const app = express();
 
+app.use(cors({
+  origin: 'http://localhost:8080',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Name'],
+}));
 app.use(express.json());
 app.use(cookieParser());
 

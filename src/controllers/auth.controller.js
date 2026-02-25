@@ -11,8 +11,7 @@ exports.init = async (req, res) => {
     const userId = await userRepo.createUser();
 
     const deviceUUID = crypto.randomUUID();
-    const deviceName = req.headers["user-agent"] || "Unknown Device";
-
+    const deviceName = req.headers["x-device-name"] || req.headers["user-agent"] || "Unknown Device";
     await deviceRepo.createDevice(userId, deviceUUID, deviceName);
 
     const token = sign({
