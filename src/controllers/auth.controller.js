@@ -11,7 +11,12 @@ exports.init = async (req, res) => {
     const userId = await userRepo.createUser();
 
     const deviceUUID = crypto.randomUUID();
-    const deviceName = req.headers["x-device-name"] || req.headers["user-agent"] || "Unknown Device";
+    const deviceName = req.body["device_name"];
+
+    if(!deviceName) {
+        return res.status(401).json({ message: "device name not set" });
+    }
+
     await deviceRepo.createDevice(userId, deviceUUID, deviceName);
 
     const token = sign({
