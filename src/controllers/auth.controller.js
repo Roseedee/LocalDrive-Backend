@@ -13,7 +13,7 @@ exports.init = async (req, res) => {
     const deviceUUID = crypto.randomUUID();
     const deviceName = req.body["device_name"];
 
-    if(!deviceName) {
+    if (!deviceName) {
         return res.status(401).json({ message: "device name not set" });
     }
 
@@ -29,7 +29,10 @@ exports.init = async (req, res) => {
         sameSite: "Strict"
     });
 
-    res.json({ message: "Authentication successful" });
+    res.json({
+        user: { id: userId },
+        device_name: deviceName
+    });
 }
 
 exports.me = async (req, res) => {
