@@ -28,6 +28,10 @@ module.exports = async (req, res, next) => {
 
             const decoded = verify(token, { ignoreExpiration: true });
 
+            if (!decoded?.device_uuid) {
+                return res.status(401).json({ message: "Invalid token payload" });
+            }
+
             const device = await deviceRepo.findByUUID(decoded.device_uuid);
             if (!device) {
                 return res.status(401).json({ message: "Device not found" });
