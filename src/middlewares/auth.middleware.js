@@ -25,6 +25,7 @@ module.exports = async (req, res, next) => {
 
     } catch (err) {
         if (err.name === "TokenExpiredError") {
+            // console.log("Token expired, attempting to refresh...");
 
             const decoded = verify(token, { ignoreExpiration: true });
 
