@@ -6,8 +6,8 @@ exports.createDevice = async (userId, uuid, name) => {
 }
 
 exports.findByUUID = async (uuid) => {
-    const [rows] = await db.execute(`SELECT * FROM devices WHERE device_uuid = ?`, [uuid]);
-    return rows[0];
+    const [result] = await db.execute(`SELECT * FROM devices WHERE device_uuid = ?`, [uuid]);
+    return result[0];
 }
 
 exports.updateLastUsed = async (uuid) => {

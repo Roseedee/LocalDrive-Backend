@@ -1,61 +1,34 @@
-const { sign, verify } = require('../utils/jwt');
-const deviceRepo = require('../repositories/device.repository');
+// middleware/auth.js
 
-module.exports = async (req, res, next) => {
-    const token = req.cookies.token;
+const { verifyAccess } = require('../utils/jwt');
 
-    if (!token) {
-        return res.status(401).json({ message: "Unauthorized" });
+module.exports = (req, res, next) => {
+    const auth = req.headers.authorization;
+
+    if (!auth) {
+        return res.status(401).json({ message: "No token" });
+    }
+
+    const [type, token] = auth.split(' ');
+
+    if (type !== 'Bearer' || !token) {
+        return res.status(401).json({ message: "Invalid format" });
     }
 
     try {
-        const decoded = verify(token);
+        const decoded = verifyAccess(token);
 
-        const device = await deviceRepo.findByUUID(decoded.device_uuid);
-        if (!device) {
-            return res.status(401).json({ message: "Device not found" });
-        }
+        req.user = {
+            id: decoded.user_id
+        };
 
-        await deviceRepo.updateLastUsed(decoded.device_uuid);
+        req.device = {
+            uuid: decoded.device_uuid
+        };
 
-        req.user = { id: device.user_id };
-        req.device = device;
+        next();
 
-        return next();
-
-    } catch (err) {
-        if (err.name === "TokenExpiredError") {
-            // console.log("Token expired, attempting to refresh...");
-
-            const decoded = verify(token, { ignoreExpiration: true });
-
-            if (!decoded?.device_uuid) {
-                return res.status(401).json({ message: "Invalid token payload" });
-            }
-
-            const device = await deviceRepo.findByUUID(decoded.device_uuid);
-            if (!device) {
-                return res.status(401).json({ message: "Device not found" });
-            }
-
-            const newToken = sign({
-                user_id: device.user_id,
-                device_uuid: device.device_uuid
-            });
-
-            res.cookie("token", newToken, {
-                httpOnly: true,
-                sameSite: "Strict"
-            });
-
-            await deviceRepo.updateLastUsed(device.device_uuid);
-
-            req.user = { id: device.user_id };
-            req.device = device;
-
-            return next();
-        }
-
-        return res.status(401).json({ message: "Invalid token" });
+    } catch {
+        return res.status(401).json({ message: "Invalid or expired token" });
     }
-}
+};

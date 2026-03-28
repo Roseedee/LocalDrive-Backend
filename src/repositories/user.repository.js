@@ -6,6 +6,6 @@ exports.createUser = async () => {
 }
 
 exports.findById = async (id) => {
-    const [rows] = await db.execute(`SELECT * FROM users WHERE id = ?`, [id]);
-    return rows[0];
+    const [result] = await db.execute(`SELECT * FROM users WHERE id = ?`, [id]);
+    return result[0];
 }
