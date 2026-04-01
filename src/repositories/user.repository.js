@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../config/database.config');
 
 exports.createUser = async () => {
     const [result] = await db.execute(`INSERT INTO users () VALUES ()`);

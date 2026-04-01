@@ -12,6 +12,7 @@ module.exports = (req, res, next) => {
     const [type, token] = auth.split(' ');
 
     if (type !== 'Bearer' || !token) {
+        console.log("Invalid authorization header format");
         return res.status(401).json({ message: "Invalid format" });
     }
 

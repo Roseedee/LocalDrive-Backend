@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../config/database.config');
 
 exports.createToken = async (userId, deviceUUID, tokenHash, expiresAt) => {
     const [result] = await db.execute(

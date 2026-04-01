@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../config/database.config');
 
 exports.getStatus = async (req, res) => {
     res.status(200).json({

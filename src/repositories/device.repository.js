@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../config/database.config');
 
 exports.createDevice = async (userId, uuid, name) => {
     const [result] = await db.execute(`INSERT INTO devices (user_id, device_uuid, device_name) VALUES (?, ?, ?)`, [userId, uuid, name]);
