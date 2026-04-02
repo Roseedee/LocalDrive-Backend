@@ -43,8 +43,10 @@ exports.init = async (req, res) => {
     res.json({
         accessToken: accessToken,
         user: { id: userId },
-        device_name: deviceName,
-        device_uuid: deviceUUID
+        device: {
+            name: deviceName,
+            uuid: deviceUUID
+        }
     });
 }
 
@@ -98,16 +100,23 @@ exports.refresh = async (req, res) => {
     res.json({
         accessToken: accessToken,
         user: { id: deviceRecord.user_id },
-        device_name: deviceRecord.device_name,
-        device_uuid: deviceRecord.device_uuid
+        device: {
+            name: deviceRecord.device_name,
+            uuid: deviceRecord.device_uuid
+        }
     });
 }    
 
 exports.me = async (req, res) => {
     console.log("Authenticated user:", req.user, "Device:", req.device);
+    const deviceRecord = await deviceRepo.findByUUID(req.device.uuid);
+    // console.log("Device record : ", deviceRecord);
     res.json({
         user: req.user,
-        device_name: req.device.device_name,
+        device: {
+            name: deviceRecord.device_name,
+            uuid: deviceRecord.device_uuid
+        }
     });
 }
 
