@@ -21,10 +21,11 @@ exports.init = async (req, res) => {
         return res.status(401).json({ message: "Invalid request data" });
     }
 
-    await deviceRepo.createDevice(userId, deviceUUID, deviceName);
+    const deviceId = await deviceRepo.createDevice(userId, deviceUUID, deviceName);
 
     const accessToken = signAccess({
         user_id: userId,
+        device_id: deviceId,
         device_uuid: deviceUUID
     });
 
@@ -87,6 +88,7 @@ exports.refresh = async (req, res) => {
 
     const accessToken = signAccess({
         user_id: deviceRecord.user_id,
+        device_id: deviceRecord.id,
         device_uuid: deviceRecord.device_uuid
     });
 
@@ -101,6 +103,7 @@ exports.refresh = async (req, res) => {
         accessToken: accessToken,
         user: { id: deviceRecord.user_id },
         device: {
+            id: deviceRecord.id,
             name: deviceRecord.device_name,
             uuid: deviceRecord.device_uuid
         }
@@ -114,6 +117,7 @@ exports.me = async (req, res) => {
     res.json({
         user: req.user,
         device: {
+            id: deviceRecord.id,
             name: deviceRecord.device_name,
             uuid: deviceRecord.device_uuid
         }

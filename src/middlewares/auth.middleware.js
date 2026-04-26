@@ -24,6 +24,7 @@ module.exports = (req, res, next) => {
         };
 
         req.device = {
+            id: decoded.device_id,
             uuid: decoded.device_uuid
         };
 
