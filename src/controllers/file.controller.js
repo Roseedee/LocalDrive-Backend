@@ -38,49 +38,35 @@ exports.upload = async (req, res) => {
 
     const busboy = Busboy({ headers: req.headers });
 
-    const uploadsDir = path.join(__dirname, '../..', 'upload-temp', userID.toString(), deviceUUID.toString());
-    if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    let uploadedBytes = 0;
-    const totalBytes = parseInt(req.headers['content-length'], 10);
+    const uploadsDir = path.join(__dirname, '../..', 'upload-temp', String(userID), String(deviceUUID));
+    await fs.promises.mkdir(uploadsDir, { recursive: true });
 
     const files = [];
     const fields = {};
     const tasks = [];
 
-
-    req.on('data', chunk => {
-        uploadedBytes += chunk.length;
-
-        if (totalBytes) {
-            const progress = Math.round((uploadedBytes / totalBytes) * 100);
-            console.log(`Upload progress: ${progress}%`);
-        }
-    })
-
-    req.on('end', () => {
-        console.log('Upload complete');
-    });
-
     // 📥 handle file
     busboy.on('file', (fieldname, file, info) => {
         const { filename, mimeType } = info;
 
-        // 🔥 sanitize แต่ยังเก็บ folder
         const safePath = sanitizePath(filename);
-
         const parts = safePath.split('/');
+
         const actualName = parts.pop();
         const folders = parts;
 
         if (!actualName) {
-            throw new Error('Invalid filename');
+            file.resume(); // 🔥 สำคัญ กัน stream ค้าง
+            return;
         }
+
+        const ext = path.extname(actualName);
+
         const tempPath = path.join(uploadsDir, `temp-${uuidv4()}`);
 
         const task = (async () => {
+            let fileSize = 0;
+
             try {
                 const writeStream = fs.createWriteStream(tempPath);
                 const hash = crypto.createHash('sha256');
@@ -88,11 +74,12 @@ exports.upload = async (req, res) => {
                 const hashStream = new Transform({
                     transform(chunk, enc, cb) {
                         hash.update(chunk);
+                        fileSize += chunk.length; // 🔥 size
                         cb(null, chunk);
                     }
                 });
 
-                // 🔥 ใช้ hashStream จริง
+                // 🔥 stream + hash + write
                 await pipeline(file, hashStream, writeStream);
 
                 const fileHash = hash.digest('hex');
@@ -107,7 +94,16 @@ exports.upload = async (req, res) => {
                 );
 
                 await fs.promises.mkdir(path.dirname(finalPath), { recursive: true });
-                await fs.promises.rename(tempPath, finalPath);
+
+                // 🔥 ถ้ามีอยู่แล้ว (dedup)
+                try {
+                    await fs.promises.access(finalPath);
+                    // มีอยู่แล้ว → ลบ temp
+                    await fs.promises.unlink(tempPath);
+                } catch {
+                    // ไม่มี → move
+                    await fs.promises.rename(tempPath, finalPath);
+                }
 
                 const result = {
                     originalName: actualName,
@@ -115,7 +111,9 @@ exports.upload = async (req, res) => {
                     folders,
                     hash: fileHash,
                     storagePath: finalPath,
-                    type: mimeType
+                    type: mimeType,
+                    size: fileSize,
+                    extension: ext
                 };
 
                 files.push(result);
@@ -137,18 +135,18 @@ exports.upload = async (req, res) => {
 
     // ✅ finish
     busboy.on('finish', async () => {
-        console.log('🎯 All files processed');
         try {
             await Promise.all(tasks);
 
+            // 🔥 DB part
             for (const f of files) {
 
-                // 1. blob
+                // 1. blob (dedup by hash)
                 const blobId = await fileRepo.getOrCreateBlob(
                     f.hash,
                     f.storagePath,
                     f.type,
-                    0 // size (ค่อยเพิ่มทีหลัง)
+                    f.size
                 );
 
                 // 2. folder tree
@@ -172,21 +170,25 @@ exports.upload = async (req, res) => {
                 );
             }
 
-            res.json({ status: 'ok' });
+            res.json({
+                status: 'ok',
+                count: files.length
+            });
 
         } catch (err) {
             console.error(err);
-            res.status(500).json({ error: 'DB error' });
+            res.status(500).json({ error: 'upload failed' });
         }
     });
 
     req.pipe(busboy);
-}
+};
 
 exports.getItemsList = async (req, res) => {
     try {
         const userID = req.user.id;
         const parentId = req.query.parent_id || null;
+
 
         const row = await fileRepo.getItemsList(userID, parentId)
 
@@ -198,5 +200,71 @@ exports.getItemsList = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'failed to fetch files' });
+    }
+};
+
+exports.serveFile = async (req, res) => {
+    try {
+        const userID = req.user.id;
+        const fileID = req.params.id;
+        
+        const file = await fileRepo.getFileById(userID, fileID);
+
+        if (!file || !file.storage_path) {
+            return res.status(404).json({ message: "File not found" });
+        }
+
+        const filePath = file.storage_path;
+        const mime = file.mime_type || 'application/octet-stream';
+
+        await fs.promises.access(filePath);
+
+        const stat = await fs.promises.stat(filePath);
+
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Content-Length', stat.size);
+
+        const filename = encodeURIComponent(file.name || 'file');
+
+        const isDownload = req.query.download === 'true';
+
+        res.setHeader(
+            'Content-Disposition',
+            `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"`
+        );
+
+        const range = req.headers.range;
+
+        if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+
+            const chunkSize = end - start + 1;
+
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunkSize,
+                'Content-Type': mime,
+            });
+
+            fs.createReadStream(filePath, { start, end }).pipe(res);
+            return;
+        }
+
+        const stream = fs.createReadStream(filePath);
+
+        stream.on('error', (err) => {
+            console.error(err);
+            res.status(500).end();
+        });
+
+        stream.pipe(res);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "failed to serve file" });
     }
 };

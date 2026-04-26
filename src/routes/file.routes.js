@@ -5,5 +5,6 @@ const fileController = require('../controllers/file.controller');
 
 router.post('/', fileController.upload)
 router.get('/', fileController.getItemsList)
+router.get('/:id', fileController.serveFile)
 
 module.exports = router;

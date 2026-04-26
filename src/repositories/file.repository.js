@@ -60,6 +60,7 @@ exports.getItemsList = async (userID, parentID) => {
                 f.type,
                 f.parent_id,
                 f.created_at,
+                f.updated_at,
                 b.size,
                 b.mime_type
             FROM files f
@@ -71,5 +72,43 @@ exports.getItemsList = async (userID, parentID) => {
         [userID, parentID]
     );
 
+    const results = rows.map((item) => {
+        return {
+            id: item.id,
+            uploaded_by_device_id: item.uploaded_by_device_id,
+            parent_id: item.parent_id,
+            name: item.name,
+            type: item.type,
+            size: item.size,
+            mime_type: item.mime_type,
+            created_at: item.created_at,
+            updated_at: item.updated_at
+        }
+    })
+
     return rows;
 }
+
+exports.getFileById = async (userID, fileID) => {
+    const [rows] = await db.execute(`
+        SELECT 
+            f.id,
+            f.name,
+            f.parent_id,
+            f.user_id,
+            f.blob_id,
+            f.created_at,
+
+            b.hash,
+            b.storage_path,
+            b.mime_type,
+            b.size
+
+        FROM files f
+        JOIN blobs b ON f.blob_id = b.id
+        WHERE f.user_id = ? AND f.id = ?
+        LIMIT 1
+    `, [userID, fileID]);
+
+    return rows[0] || null;
+};
