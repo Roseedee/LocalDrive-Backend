@@ -3,33 +3,16 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const db = require('../config/database.config')
-
 const { pipeline } = require('stream/promises')
 const { Transform } = require('stream');
 
+
 const fileRepo = require('../repositories/file.repository')
+const db = require('../config/database.config')
 
-function sanitizePath(input) {
-    if (!input) return '';
-
-    // แปลง \ → /
-    let p = input.replace(/\\/g, '/');
-
-    // normalize path
-    p = path.posix.normalize(p);
-
-    // ลบ ../../ ด้านหน้า
-    p = p.replace(/^(\.\.(\/|$))+/, '');
-
-    // กัน absolute path (/xxx)
-    p = p.replace(/^\/+/, '');
-
-    // กัน null byte
-    p = p.replace(/\0/g, '');
-
-    return p;
-}
+//utils
+const { sanitizePath } = require('../utils/sanitizePath');
+const { generateThumbnail } = require('../utils/generateThumbnail');
 
 exports.upload = async (req, res) => {
     const userID = req.user.id;
@@ -45,9 +28,10 @@ exports.upload = async (req, res) => {
     const fields = {};
     const tasks = [];
 
-    // 📥 handle file
     busboy.on('file', (fieldname, file, info) => {
-        const { filename, mimeType } = info;
+        let { filename, mimeType } = info;
+
+        filename = Buffer.from(filename, 'latin1').toString('utf8'); // แปลงชื่อไฟล์เป็น UTF-8
 
         const safePath = sanitizePath(filename);
         const parts = safePath.split('/');
@@ -56,7 +40,7 @@ exports.upload = async (req, res) => {
         const folders = parts;
 
         if (!actualName) {
-            file.resume(); // 🔥 สำคัญ กัน stream ค้าง
+            file.resume();
             return;
         }
 
@@ -74,12 +58,11 @@ exports.upload = async (req, res) => {
                 const hashStream = new Transform({
                     transform(chunk, enc, cb) {
                         hash.update(chunk);
-                        fileSize += chunk.length; // 🔥 size
+                        fileSize += chunk.length;
                         cb(null, chunk);
                     }
                 });
 
-                // 🔥 stream + hash + write
                 await pipeline(file, hashStream, writeStream);
 
                 const fileHash = hash.digest('hex');
@@ -88,6 +71,7 @@ exports.upload = async (req, res) => {
                     __dirname,
                     '../..',
                     'storage',
+                    'original',
                     fileHash.slice(0, 2),
                     fileHash.slice(2, 4),
                     fileHash
@@ -95,13 +79,10 @@ exports.upload = async (req, res) => {
 
                 await fs.promises.mkdir(path.dirname(finalPath), { recursive: true });
 
-                // 🔥 ถ้ามีอยู่แล้ว (dedup)
                 try {
                     await fs.promises.access(finalPath);
-                    // มีอยู่แล้ว → ลบ temp
                     await fs.promises.unlink(tempPath);
                 } catch {
-                    // ไม่มี → move
                     await fs.promises.rename(tempPath, finalPath);
                 }
 
@@ -113,7 +94,7 @@ exports.upload = async (req, res) => {
                     storagePath: finalPath,
                     type: mimeType,
                     size: fileSize,
-                    extension: ext
+                    extension: ext,
                 };
 
                 files.push(result);
@@ -128,28 +109,37 @@ exports.upload = async (req, res) => {
         tasks.push(task);
     });
 
-    // 📦 handle fields
     busboy.on('field', (fieldname, val) => {
         fields[fieldname] = val;
     });
 
-    // ✅ finish
     busboy.on('finish', async () => {
         try {
             await Promise.all(tasks);
 
-            // 🔥 DB part
             for (const f of files) {
 
-                // 1. blob (dedup by hash)
+                let thumbPath = null;
+
+                if (f.type.startsWith('image/')) {
+                    try {
+                        thumbPath = await generateThumbnail({
+                            inputPath: f.storagePath,
+                            hash: f.hash
+                        });
+                    } catch (err) {
+                        console.error('Failed to generate thumbnail for', f.originalName, err);
+                    }
+                }
+
                 const blobId = await fileRepo.getOrCreateBlob(
                     f.hash,
                     f.storagePath,
                     f.type,
-                    f.size
+                    f.size,
+                    thumbPath
                 );
 
-                // 2. folder tree
                 let parentId = null;
 
                 for (const folderName of f.folders) {
@@ -160,7 +150,6 @@ exports.upload = async (req, res) => {
                     );
                 }
 
-                // 3. file
                 await fileRepo.insertFile(
                     userID,
                     deviceID,
@@ -191,6 +180,7 @@ exports.getItemsList = async (req, res) => {
 
 
         const row = await fileRepo.getItemsList(userID, parentId)
+        // console.log(row);
 
         res.json({
             status: 'ok',
@@ -203,11 +193,40 @@ exports.getItemsList = async (req, res) => {
     }
 };
 
+exports.serveThumbnail = async (req, res) => {
+    try {
+        const hash = req.params.hash;
+
+        const filePath = path.join(
+            __dirname,
+            "../..",
+            "storage",
+            "thumbnails",
+            hash.slice(0, 2),
+            hash.slice(2, 4),
+            `${hash}.webp`
+        );
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).end();
+        }
+
+        res.setHeader("Content-Type", "image/webp");
+        res.setHeader("Cache-Control", "public, max-age=31536000");
+
+        fs.createReadStream(filePath).pipe(res);
+    } catch (err) {
+        console.log("Error serving thumbnail:", err);
+        res.status(401).end();
+
+    };
+}
+
 exports.serveFile = async (req, res) => {
     try {
         const userID = req.user.id;
         const fileID = req.params.id;
-        
+
         const file = await fileRepo.getFileById(userID, fileID);
 
         if (!file || !file.storage_path) {

@@ -1,6 +1,6 @@
 const db = require('../config/database.config')
 
-exports.getOrCreateBlob = async (fileHash, storagePath, mimeType, size) => {
+exports.getOrCreateBlob = async (fileHash, storagePath, mimeType, size, thumbnailPath) => {
     // 🔍 หา hash ก่อน
     const [rows] = await db.execute(
         'SELECT id FROM blobs WHERE `hash` = ?',
@@ -13,9 +13,9 @@ exports.getOrCreateBlob = async (fileHash, storagePath, mimeType, size) => {
 
     // ❗ insert ใหม่
     const [result] = await db.execute(
-        `INSERT INTO blobs (hash, size, mime_type, storage_path)
-         VALUES (?, ?, ?, ?)`,
-        [fileHash, size, mimeType, storagePath]
+        `INSERT INTO blobs (hash, size, mime_type, storage_path, thumbnailPath)
+         VALUES (?, ?, ?, ?, ?)`,
+        [fileHash, size, mimeType, storagePath, thumbnailPath]
     );
 
     return result.insertId;
@@ -61,6 +61,7 @@ exports.getItemsList = async (userID, parentID) => {
                 f.parent_id,
                 f.created_at,
                 f.updated_at,
+                b.hash,
                 b.size,
                 b.mime_type
             FROM files f
@@ -68,7 +69,7 @@ exports.getItemsList = async (userID, parentID) => {
             WHERE f.user_id = ?
               AND f.parent_id <=> ?
               AND f.deleted_at IS NULL
-            ORDER BY f.type DESC, f.name ASC`,
+            ORDER BY f.created_at DESC`,
         [userID, parentID]
     );
 
