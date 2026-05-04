@@ -14,6 +14,31 @@ const db = require('../config/database.config')
 const { sanitizePath } = require('../utils/sanitizePath');
 const { generateThumbnail } = require('../utils/generateThumbnail');
 
+exports.create = async (req, res) => {
+    // ถ้ามี file → upload
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+        return exports.upload(req, res);
+    }
+
+    // ถ้าไม่มี → create folder
+    const { name, parentId } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'name required' });
+    }
+
+    const folderId = await fileRepo.getOrCreateFolder(
+        req.user.id,
+        parentId ?? null,
+        name
+    );
+
+    res.json({
+        id: folderId,
+        type: 'folder'
+    });
+};
+
 exports.upload = async (req, res) => {
     const userID = req.user.id;
     const deviceID = req.device.id;
@@ -171,6 +196,22 @@ exports.upload = async (req, res) => {
     });
 
     req.pipe(busboy);
+};
+
+exports.createFolder = async (req, res) => {
+    try {
+        const userID = req.user.id;
+        const { name, parent_id } = req.body;
+        const folderId = await fileRepo.getOrCreateFolder(userID, parent_id, name);
+
+        res.json({  
+            status: 'ok',
+            folder_id: folderId
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'failed to create folder' });
+    }   
 };
 
 exports.getItemsList = async (req, res) => {

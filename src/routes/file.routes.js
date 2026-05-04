@@ -3,9 +3,9 @@ const router = express.Router();
 
 const fileController = require('../controllers/file.controller');
 
-router.post('/', fileController.upload)
+router.post('/', fileController.create)
 router.get('/', fileController.getItemsList)
-router.get('/:id', fileController.serveFile)
-router.get('/thumbnail/:hash', fileController.serveThumbnail)
+router.get('/:id/content', fileController.serveFile)
+router.get('/:hash/thumbnail', fileController.serveThumbnail)
 
 module.exports = router;

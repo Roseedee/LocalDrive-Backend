@@ -21,7 +21,7 @@ exports.getOrCreateBlob = async (fileHash, storagePath, mimeType, size, thumbnai
     return result.insertId;
 }
 
-exports.getOrCreateFolder = async (userID, parent_id, name) => {
+exports.getOrCreateFolder = async (userID, parentId, name) => {
     const [rows] = await db.execute(
         `SELECT id FROM files 
          WHERE user_id = ? AND parent_id <=> ? AND name = ? AND type = 'folder' AND deleted_at IS NULL`,
@@ -69,7 +69,7 @@ exports.getItemsList = async (userID, parentID) => {
             WHERE f.user_id = ?
               AND f.parent_id <=> ?
               AND f.deleted_at IS NULL
-            ORDER BY f.created_at DESC`,
+            ORDER BY (f.type = 'folder') DESC, f.created_at DESC`,
         [userID, parentID]
     );
 
