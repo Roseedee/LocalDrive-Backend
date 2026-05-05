@@ -278,20 +278,17 @@ exports.serveFile = async (req, res) => {
         const mime = file.mime_type || 'application/octet-stream';
 
         await fs.promises.access(filePath);
-
         const stat = await fs.promises.stat(filePath);
 
-        res.setHeader('Content-Type', mime);
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Content-Length', stat.size);
-
         const filename = encodeURIComponent(file.name || 'file');
-
         const isDownload = req.query.download === 'true';
+
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
         res.setHeader(
             'Content-Disposition',
-            `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"`
+            `${isDownload ? 'attachment' : 'inline'}; filename*=UTF-8''${filename}`
         );
 
         const range = req.headers.range;
@@ -301,25 +298,32 @@ exports.serveFile = async (req, res) => {
             const start = parseInt(parts[0], 10);
             const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
 
+            if (start >= stat.size || end >= stat.size) {
+                return res.status(416).send('Requested range not satisfiable');
+            }
+
             const chunkSize = end - start + 1;
 
             res.writeHead(206, {
                 'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-                'Accept-Ranges': 'bytes',
                 'Content-Length': chunkSize,
                 'Content-Type': mime,
             });
 
-            fs.createReadStream(filePath, { start, end }).pipe(res);
+            const stream = fs.createReadStream(filePath, { start, end });
+
+            res.on('close', () => stream.destroy());
+
+            stream.pipe(res);
             return;
         }
 
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Content-Length', stat.size);
+
         const stream = fs.createReadStream(filePath);
 
-        stream.on('error', (err) => {
-            console.error(err);
-            res.status(500).end();
-        });
+        res.on('close', () => stream.destroy());
 
         stream.pipe(res);
 
