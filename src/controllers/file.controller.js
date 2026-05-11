@@ -142,6 +142,8 @@ exports.upload = async (req, res) => {
         try {
             await Promise.all(tasks);
 
+            const fileUploadsSuccess = [];
+
             for (const f of files) {
 
                 let thumbPath = null;
@@ -175,18 +177,29 @@ exports.upload = async (req, res) => {
                     );
                 }
 
-                await fileRepo.insertFile(
+                const fileId = await fileRepo.insertFile(
                     userID,
                     deviceID,
                     parentId,
                     blobId,
                     f.originalName
                 );
+                const file = {
+                    id: fileId,
+                    uploaded_by_device_id: deviceID,
+                    parent_id: parentId,
+                    name: f.originalName,
+                    type: 'file',
+                    size: f.size,
+                    mime_type: f.type,
+                    hash: f.hash
+                }
+                fileUploadsSuccess.push(file);
             }
 
             res.json({
                 status: 'ok',
-                count: files.length
+                items: fileUploadsSuccess
             });
 
         } catch (err) {

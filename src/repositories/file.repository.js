@@ -73,19 +73,19 @@ exports.getItemsList = async (userID, parentID) => {
         [userID, parentID]
     );
 
-    const results = rows.map((item) => {
-        return {
-            id: item.id,
-            uploaded_by_device_id: item.uploaded_by_device_id,
-            parent_id: item.parent_id,
-            name: item.name,
-            type: item.type,
-            size: item.size,
-            mime_type: item.mime_type,
-            created_at: item.created_at,
-            updated_at: item.updated_at
-        }
-    })
+    // const results = rows.map((item) => {
+    //     return {
+    //         id: item.id,
+    //         uploaded_by_device_id: item.uploaded_by_device_id,
+    //         parent_id: item.parent_id,
+    //         name: item.name,
+    //         type: item.type,
+    //         size: item.size,
+    //         mime_type: item.mime_type,
+    //         created_at: item.created_at,
+    //         updated_at: item.updated_at
+    //     }
+    // })
 
     return rows;
 }
