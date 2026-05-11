@@ -7,5 +7,6 @@ router.post('/', fileController.create)
 router.get('/', fileController.getItemsList)
 router.get('/:id/content', fileController.serveFile)
 router.get('/:hash/thumbnail', fileController.serveThumbnail)
+router.delete('/:id', fileController.deleteFile)
 
 module.exports = router;

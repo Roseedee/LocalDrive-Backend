@@ -29,6 +29,7 @@ exports.create = async (req, res) => {
 
     const folderId = await fileRepo.getOrCreateFolder(
         req.user.id,
+        req.device.id,
         parentId ?? null,
         name
     );
@@ -172,6 +173,7 @@ exports.upload = async (req, res) => {
                 for (const folderName of f.folders) {
                     parentId = await fileRepo.getOrCreateFolder(
                         userID,
+                        deviceID,
                         parentId,
                         folderName
                     );
@@ -211,21 +213,22 @@ exports.upload = async (req, res) => {
     req.pipe(busboy);
 };
 
-exports.createFolder = async (req, res) => {
-    try {
-        const userID = req.user.id;
-        const { name, parent_id } = req.body;
-        const folderId = await fileRepo.getOrCreateFolder(userID, parent_id, name);
+// exports.createFolder = async (req, res) => {
+//     try {
+//         const userID = req.user.id;
+//         const deviceID = req.device.id;
+//         const { name, parent_id } = req.body;
+//         const folderId = await fileRepo.getOrCreateFolder(userID, deviceID, parent_id, name);
 
-        res.json({  
-            status: 'ok',
-            folder_id: folderId
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'failed to create folder' });
-    }   
-};
+//         res.json({  
+//             status: 'ok',
+//             folder_id: folderId
+//         });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'failed to create folder' });
+//     }   
+// };
 
 exports.getItemsList = async (req, res) => {
     try {
@@ -343,5 +346,27 @@ exports.serveFile = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "failed to serve file" });
+    }
+};
+
+exports.deleteFile = async (req, res) => {
+    try {
+        const userID = req.user.id;
+        const fileID = req.params.id;
+
+        const result = await fileRepo.deleteFile(userID, fileID);
+
+        if(!result || result.affectedRows === 0) {
+            return res.status(404).json({ error: "File not found" });
+        }
+
+        if(result.affectedRows > 0) {
+            return res.status(200).json({ status: 'ok', message: 'File deleted successfully', file_id: fileID });
+        }
+
+        // res.json({ status: 'ok', message: 'File deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "failed to delete file" });
     }
 };

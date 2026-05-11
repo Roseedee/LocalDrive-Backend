@@ -21,11 +21,11 @@ exports.getOrCreateBlob = async (fileHash, storagePath, mimeType, size, thumbnai
     return result.insertId;
 }
 
-exports.getOrCreateFolder = async (userID, parentId, name) => {
+exports.getOrCreateFolder = async (userID, deviceID, parentId, name) => {
     const [rows] = await db.execute(
         `SELECT id FROM files 
-         WHERE user_id = ? AND parent_id <=> ? AND name = ? AND type = 'folder' AND deleted_at IS NULL`,
-        [userID, parentId, name]
+         WHERE user_id = ? AND uploaded_by_device_id = ? AND parent_id <=> ? AND name = ? AND type = 'folder' AND deleted_at IS NULL`,
+        [userID, deviceID, parentId, name]
     );
 
     if (rows.length > 0) {
@@ -33,9 +33,9 @@ exports.getOrCreateFolder = async (userID, parentId, name) => {
     }
 
     const [result] = await db.execute(
-        `INSERT INTO files (user_id, parent_id, name, type)
-         VALUES (?, ?, ?, 'folder')`,
-        [userID, parentId, name]
+        `INSERT INTO files (user_id, uploaded_by_device_id, parent_id, name, type)
+         VALUES (?, ?, ?, ?, 'folder')`,
+        [userID, deviceID, parentId, name]
     );
 
     return result.insertId;
@@ -112,4 +112,13 @@ exports.getFileById = async (userID, fileID) => {
     `, [userID, fileID]);
 
     return rows[0] || null;
+};
+
+exports.deleteFile = async (userID, fileID) => {
+    const [result] = await db.execute(
+        `UPDATE files SET deleted_at = NOW() WHERE user_id = ? AND id = ?`,
+        [userID, fileID]
+    );
+
+    return result;
 };
