@@ -122,3 +122,29 @@ exports.deleteFile = async (userID, fileID) => {
 
     return result;
 };
+
+exports.updateFile = async (userID, fileID, updates) => {
+
+    const fields = [];
+    const values = [];
+
+    for (const [key, value] of Object.entries(updates)) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+    }
+
+    values.push(userID);
+    values.push(fileID);
+
+    const [result] = await db.execute(
+        `
+        UPDATE files
+        SET ${fields.join(', ')}
+        WHERE user_id = ?
+          AND id = ?
+        `,
+        values
+    );
+
+    return result;
+}

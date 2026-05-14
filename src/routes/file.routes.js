@@ -8,5 +8,6 @@ router.get('/', fileController.getItemsList)
 router.get('/:id/content', fileController.serveFile)
 router.get('/:hash/thumbnail', fileController.serveThumbnail)
 router.delete('/:id', fileController.deleteFile)
+router.patch('/:id', fileController.updateFile)
 
 module.exports = router;

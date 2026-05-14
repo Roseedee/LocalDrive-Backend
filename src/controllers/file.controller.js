@@ -12,6 +12,7 @@ const db = require('../config/database.config')
 
 //utils
 const { sanitizePath } = require('../utils/sanitizePath');
+const { sanitizeFileName } = require('../utils/sanitizeFileName')
 const { generateThumbnail } = require('../utils/generateThumbnail');
 
 exports.create = async (req, res) => {
@@ -356,11 +357,11 @@ exports.deleteFile = async (req, res) => {
 
         const result = await fileRepo.deleteFile(userID, fileID);
 
-        if(!result || result.affectedRows === 0) {
+        if (!result || result.affectedRows === 0) {
             return res.status(404).json({ error: "File not found" });
         }
 
-        if(result.affectedRows > 0) {
+        if (result.affectedRows > 0) {
             return res.status(200).json({ status: 'ok', message: 'File deleted successfully', file_id: fileID });
         }
 
@@ -370,3 +371,64 @@ exports.deleteFile = async (req, res) => {
         res.status(500).json({ error: "failed to delete file" });
     }
 };
+
+exports.updateFile = async (req, res) => {
+    try {
+        const userID = req.user.id;
+        const fileID = req.params.id;
+
+        const payload = req.body;
+
+        const allowedFields = [
+            'name',
+            'parent_id'
+        ];
+
+        const updates = {};
+
+        for (const key of allowedFields) {
+            if (payload[key] !== undefined) {
+                updates[key] = payload[key];
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(500).json({
+                error: 'No fields to update'
+            })
+        }
+
+        if (updates.name !== undefined) {
+            updates.name = sanitizeFileName(updates.name)
+
+            if (!updates.name) {
+                return res.status(400).json({
+                    error: 'Invalid file name'
+                });
+            }
+        }
+
+        const result = await fileRepo.updateFile(userID, fileID, updates);
+
+        if (!result || result.affectedRows === 0) {
+            return res.status(404).json({
+                error: 'File not found'
+            })
+        }
+
+        res.json({
+            status: 'ok',
+            updated: updates
+        })
+
+
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            error: 'failed to update file'
+        })
+    }
+
+
+}
