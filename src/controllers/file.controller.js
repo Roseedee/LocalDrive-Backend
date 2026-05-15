@@ -36,8 +36,12 @@ exports.create = async (req, res) => {
     );
 
     res.json({
-        id: folderId,
-        type: 'folder'
+        status: 'ok',
+        items: [{
+            id: folderId,
+            name: name,
+            type: 'folder'
+        }]
     });
 };
 
