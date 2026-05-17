@@ -173,7 +173,7 @@ exports.upload = async (req, res) => {
                     thumbPath
                 );
 
-                let parentId = null;
+                let parentId = fields.parent_id || null;
 
                 for (const folderName of f.folders) {
                     parentId = await fileRepo.getOrCreateFolder(
