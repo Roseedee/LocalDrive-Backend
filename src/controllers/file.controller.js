@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const { pipeline } = require('stream/promises')
 const { Transform } = require('stream');
+const { nanoid } = require('nanoid')
 
 
 const fileRepo = require('../repositories/file.repository')
@@ -14,6 +15,9 @@ const db = require('../config/database.config')
 const { sanitizePath } = require('../utils/sanitizePath');
 const { sanitizeFileName } = require('../utils/sanitizeFileName')
 const { generateThumbnail } = require('../utils/generateThumbnail');
+
+//test
+const { delay } = require('../utils/delay')
 
 exports.create = async (req, res) => {
     // ถ้ามี file → upload
@@ -28,7 +32,10 @@ exports.create = async (req, res) => {
         return res.status(400).json({ error: 'name required' });
     }
 
+    const publicID = nanoid();
+
     const folderId = await fileRepo.getOrCreateFolder(
+        publicID,
         req.user.id,
         req.device.id,
         parentId ?? null,
@@ -39,6 +46,7 @@ exports.create = async (req, res) => {
         status: 'ok',
         items: [{
             id: folderId,
+            public_id: publicID,
             name: name,
             type: 'folder'
         }]
@@ -176,7 +184,9 @@ exports.upload = async (req, res) => {
                 let parentId = fields.parent_id || null;
 
                 for (const folderName of f.folders) {
+                    const publicID = nanoid();
                     parentId = await fileRepo.getOrCreateFolder(
+                        publicID,
                         userID,
                         deviceID,
                         parentId,
@@ -238,14 +248,19 @@ exports.upload = async (req, res) => {
 exports.getItemsList = async (req, res) => {
     try {
         const userID = req.user.id;
-        const parentId = req.query.parent_id || null;
+        const publicId = req.query.public_id || null;
+
+        let parentID = null;
+        if(publicId) {
+            parentID = await fileRepo.getFolderIDByPublicID(publicId)  ;
+        }
 
 
-        const row = await fileRepo.getItemsList(userID, parentId)
         // console.log(row);
 
         res.json({
             status: 'ok',
+            parent_id: parentID,
             items: row
         });
 
@@ -355,6 +370,7 @@ exports.serveFile = async (req, res) => {
 };
 
 exports.deleteFile = async (req, res) => {
+    // await delay(1000)
     try {
         const userID = req.user.id;
         const fileID = req.params.id;

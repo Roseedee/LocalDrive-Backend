@@ -21,11 +21,11 @@ exports.getOrCreateBlob = async (fileHash, storagePath, mimeType, size, thumbnai
     return result.insertId;
 }
 
-exports.getOrCreateFolder = async (userID, deviceID, parentId, name) => {
+exports.getOrCreateFolder = async (publicID, userID, deviceID, parentId, name) => {
     const [rows] = await db.execute(
         `SELECT id FROM files 
-         WHERE user_id = ? AND uploaded_by_device_id = ? AND parent_id <=> ? AND name = ? AND type = 'folder' AND deleted_at IS NULL`,
-        [userID, deviceID, parentId, name]
+         WHERE public_id = ? AND user_id = ? AND uploaded_by_device_id = ? AND parent_id <=> ? AND name = ? AND type = 'folder' AND deleted_at IS NULL`,
+        [publicID, userID, deviceID, parentId, name]
     );
 
     if (rows.length > 0) {
@@ -33,12 +33,24 @@ exports.getOrCreateFolder = async (userID, deviceID, parentId, name) => {
     }
 
     const [result] = await db.execute(
-        `INSERT INTO files (user_id, uploaded_by_device_id, parent_id, name, type)
-         VALUES (?, ?, ?, ?, 'folder')`,
-        [userID, deviceID, parentId, name]
+        `INSERT INTO files (public_id, user_id, uploaded_by_device_id, parent_id, name, type)
+         VALUES (?, ?, ?, ?, ?, 'folder')`,
+        [publicID, userID, deviceID, parentId, name]
     );
 
     return result.insertId;
+}
+
+exports.getFolderIDByPublicID = async (publicID) => {
+    const [rows] = await db.execute(
+        `SELECT id FROM files 
+         WHERE public_id = ? AND type = 'folder' AND deleted_at IS NULL`,
+        [publicID]
+    )
+
+    if(rows.length > 0) {
+        return rows[0].id;
+    }
 }
 
 exports.insertFile = async (userID, deviceID, parentId, blobId, name) => {
@@ -55,6 +67,7 @@ exports.getItemsList = async (userID, parentID) => {
     const [rows] = await db.execute(
         `SELECT 
                 f.id,
+                f.public_id,
                 f.uploaded_by_device_id,
                 f.name,
                 f.type,
