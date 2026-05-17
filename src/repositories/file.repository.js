@@ -161,3 +161,52 @@ exports.updateFile = async (userID, fileID, updates) => {
 
     return result;
 }
+
+exports.getFullPathByParentID = async (userID, parentID) => {
+  const [rows] = await db.execute(
+    `
+    WITH RECURSIVE parent_chain AS (
+      SELECT
+        id,
+        public_id,
+        parent_id,
+        name,
+        type,
+        1 AS lvl
+      FROM files
+      WHERE id = ?
+        AND user_id = ?
+        AND deleted_at IS NULL
+        AND type = 'folder'
+
+      UNION ALL
+
+      SELECT
+        f.id,
+        f.public_id,
+        f.parent_id,
+        f.name,
+        f.type,
+        pc.lvl + 1
+      FROM files f
+      JOIN parent_chain pc ON f.id = pc.parent_id
+      WHERE f.user_id = ?
+        AND f.deleted_at IS NULL
+        AND f.type = 'folder'
+    )
+
+    SELECT 
+      id,
+      public_id,
+      name,
+      parent_id,
+      lvl
+    FROM parent_chain
+    ORDER BY lvl DESC;
+    `,
+    [parentID, userID, userID]
+  );
+
+  // reverse ให้เป็น root → current
+  return rows;
+};

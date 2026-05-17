@@ -255,12 +255,15 @@ exports.getItemsList = async (req, res) => {
             parentID = await fileRepo.getFolderIDByPublicID(publicId)  ;
         }
 
+        const row = await fileRepo.getItemsList(userID, parentID)
 
+        const path = await fileRepo.getFullPathByParentID(userID, parentID)
         // console.log(row);
 
         res.json({
             status: 'ok',
             parent_id: parentID,
+            path: path,
             items: row
         });
 
