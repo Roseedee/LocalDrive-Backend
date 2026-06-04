@@ -48,7 +48,7 @@ exports.getFolderIDByPublicID = async (publicID) => {
         [publicID]
     )
 
-    if(rows.length > 0) {
+    if (rows.length > 0) {
         return rows[0].id;
     }
 }
@@ -66,24 +66,32 @@ exports.insertFile = async (userID, deviceID, parentId, blobId, name) => {
 exports.getItemsList = async (userID, parentID) => {
     const [rows] = await db.execute(
         `SELECT 
-                f.id,
-                f.public_id,
-                f.uploaded_by_device_id,
-                f.name,
-                f.type,
-                f.parent_id,
-                f.created_at,
-                f.updated_at,
-                b.hash,
-                b.size,
-                b.mime_type
-            FROM files f
-            LEFT JOIN blobs b ON f.blob_id = b.id
-            WHERE f.user_id = ?
-              AND f.parent_id <=> ?
-              AND f.deleted_at IS NULL
-            ORDER BY (f.type = 'folder') DESC, f.created_at DESC`,
-        [userID, parentID]
+            f.id,
+            f.public_id,
+            f.uploaded_by_device_id,
+            f.name,
+            f.type,
+            f.parent_id,
+            f.created_at,
+            f.updated_at,
+            b.hash,
+            b.size,
+            b.mime_type,
+            CASE
+                WHEN fav.file_id IS NOT NULL THEN TRUE
+                ELSE FALSE
+            END AS is_favorite
+        FROM files f
+        LEFT JOIN blobs b
+            ON f.blob_id = b.id
+        LEFT JOIN favorites fav
+            ON fav.file_id = f.id
+            AND fav.user_id = ?
+        WHERE f.user_id = ?
+          AND f.parent_id <=> ?
+          AND f.deleted_at IS NULL
+        ORDER BY (f.type = 'folder') DESC, f.created_at DESC`,
+        [userID, userID, parentID]
     );
 
     // const results = rows.map((item) => {
@@ -163,8 +171,8 @@ exports.updateFile = async (userID, fileID, updates) => {
 }
 
 exports.getFullPathByParentID = async (userID, parentID) => {
-  const [rows] = await db.execute(
-    `
+    const [rows] = await db.execute(
+        `
     WITH RECURSIVE parent_chain AS (
       SELECT
         id,
@@ -204,11 +212,11 @@ exports.getFullPathByParentID = async (userID, parentID) => {
     FROM parent_chain
     ORDER BY lvl DESC;
     `,
-    [parentID, userID, userID]
-  );
+        [parentID, userID, userID]
+    );
 
-  // reverse ให้เป็น root → current
-  return rows;
+    // reverse ให้เป็น root → current
+    return rows;
 };
 
 exports.getFileFavoriteByFileID = async (userID, fileID) => {
@@ -223,7 +231,7 @@ exports.getFileFavoriteByFileID = async (userID, fileID) => {
 }
 
 exports.addOrRemoveFavorite = async (favoriteID, userID, fileID) => {
-    if(favoriteID) {
+    if (favoriteID) {
         const [result] = await db.execute(
             `DELETE FROM favorites WHERE id = ? AND user_id = ? AND file_id = ?`,
             [favoriteID, userID, fileID]
@@ -235,5 +243,5 @@ exports.addOrRemoveFavorite = async (favoriteID, userID, fileID) => {
             [userID, fileID]
         );
         return result?.insertId || null;
-    }   
+    }
 }
