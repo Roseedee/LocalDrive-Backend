@@ -210,3 +210,30 @@ exports.getFullPathByParentID = async (userID, parentID) => {
   // reverse ให้เป็น root → current
   return rows;
 };
+
+exports.getFileFavoriteByFileID = async (userID, fileID) => {
+    const [row] = await db.execute(
+        `
+        SELECT * FROM favorites WHERE file_id=? AND user_id=?
+        `,
+        [fileID, userID]
+    );
+
+    return row[0]?.id || null;
+}
+
+exports.addOrRemoveFavorite = async (favoriteID, userID, fileID) => {
+    if(favoriteID) {
+        const [result] = await db.execute(
+            `DELETE FROM favorites WHERE id = ? AND user_id = ? AND file_id = ?`,
+            [favoriteID, userID, fileID]
+        );
+        return null;
+    } else {
+        const [result] = await db.execute(
+            `INSERT INTO favorites (user_id, file_id) VALUES (?, ?)`,
+            [userID, fileID]
+        );
+        return result?.insertId || null;
+    }   
+}

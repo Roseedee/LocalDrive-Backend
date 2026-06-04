@@ -455,3 +455,34 @@ exports.updateFile = async (req, res) => {
 
 
 }
+
+exports.favorites = async (req, res) => {
+
+    try {
+        const userID = req.user.id;
+        const fileID = req.params.id;
+
+        // console.log(userID, fileID)
+
+        const favoriteID = await fileRepo.getFileFavoriteByFileID(userID, fileID);
+        
+        const result = await fileRepo.addOrRemoveFavorite(favoriteID, userID, fileID);
+        if(!result) {
+            return res.json({
+                status: 'ok',
+                favorite_id: null,
+                action: 'removed'
+            })
+        }
+        return res.json({
+            status: 'ok',
+            favorite_id: result,
+            action: 'added'
+        })
+    }catch (err) {
+        console.error(err)
+        res.status(500).json({
+            error: 'failed to toggle file favorites'
+        })
+    }
+}
