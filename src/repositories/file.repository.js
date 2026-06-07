@@ -90,7 +90,7 @@ exports.getItemsList = async (userID, parentID) => {
         WHERE f.user_id = ?
           AND f.parent_id <=> ?
           AND f.deleted_at IS NULL
-        ORDER BY (f.type = 'folder') DESC, f.created_at DESC`,
+        ORDER BY (f.type = 'folder') DESC, f.created_at DESC, f.id DESC`,
         [userID, userID, parentID]
     );
 
