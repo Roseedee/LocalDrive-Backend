@@ -10,6 +10,11 @@ exports.findByUUID = async (uuid) => {
     return result[0];
 }
 
+exports.findByUserID = async (userId) => {
+    const [result] = await db.execute(`SELECT * from devices WHERE user_id = ? AND deleted_at IS NULL`, [userId]);
+    return result
+}
+
 exports.updateLastUsed = async (uuid) => {
     const [result] = await db.execute(`UPDATE devices SET last_used_at = NOW() WHERE device_uuid = ?`, [uuid]);
     return result.affectedRows > 0;

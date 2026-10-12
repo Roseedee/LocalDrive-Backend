@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 const { REFRESH_TOKEN_MS } = require('../config/auth.config');
 
@@ -49,6 +50,57 @@ exports.init = async (req, res) => {
             uuid: deviceUUID
         }
     });
+}
+
+exports.login = async (req, res) => {
+
+    try {
+        const username = req.body["username"]
+        const password = req.body["password"]
+        // console.log("username : ", username, " : password : ", password)
+
+        if(!username || !password) {
+            return res.status(400).json({
+                message: "Invalid request data"
+            })
+        }
+
+        const user = await userRepo.findByUsername(username)
+
+        if(!user) {
+            return res.status(401).json({
+                message: "Invalid username or password"
+            })
+        }
+
+        const passwordMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
+
+        if (!passwordMatch) {
+            return res.status(401).json({
+                message: "Invalid username or password"
+            });
+        }
+
+
+        return res.json({
+            user: {
+                id: user.id,
+                name: user.name
+            },
+            device: {
+                name: "test device"
+            }
+        })
+    } catch(err) {
+        console.error("Login error : ", err)
+        return res.status(500).json({
+            message: "Internal server error"
+        })
+    }
+
 }
 
 exports.refresh = async (req, res) => {

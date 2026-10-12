@@ -10,6 +10,15 @@ exports.findById = async (id) => {
     return result[0];
 }
 
+exports.findByUsername = async (username) => {
+    const [rows] = await db.query(
+        `SELECT * FROM users WHERE username = ? AND deleted_at IS NULL LIMIT 1`,
+        [username]
+    );
+
+    return rows[0] || null;
+};
+
 exports.findByNameOrUsername = async (query) => {
     const startsWith = `${query}%`;
     const contains = `%${query}%`;
