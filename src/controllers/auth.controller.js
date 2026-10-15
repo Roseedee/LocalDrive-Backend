@@ -7,7 +7,7 @@ const userRepo = require('../repositories/user.repository');
 const deviceRepo = require('../repositories/device.repository');
 const tokenRepo = require('../repositories/token.repository');
 
-const { signAccess } = require('../utils/jwt');
+const { signAccess, signDeiveSelection } = require('../utils/jwt');
 const { generateRefreshToken, hashToken } = require('../utils/token');
 
 exports.init = async (req, res) => {
@@ -84,15 +84,14 @@ exports.login = async (req, res) => {
             });
         }
 
+        const selectionToken = signDeiveSelection(user.id);
 
         return res.json({
+            selectionToken,
             user: {
                 id: user.id,
                 name: user.name
             },
-            device: {
-                name: "test device"
-            }
         })
     } catch(err) {
         console.error("Login error : ", err)
@@ -174,6 +173,11 @@ exports.me = async (req, res) => {
             uuid: deviceRecord.device_uuid
         }
     });
+}
+
+exports.findReplaceableDevices = async (req, res) => {
+    console.log("userid from find replaceable device : ", req.user.id)
+    res.json({status: 'ok'})
 }
 
 exports.logout = async (req, res) => {

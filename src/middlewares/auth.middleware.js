@@ -9,15 +9,25 @@ module.exports = (req, res, next) => {
         return res.status(401).json({ message: "No token" });
     }
 
-    const [type, token] = auth.split(' ');
+    const [type, token, ...extra] = auth.split(' ');
 
-    if (type !== 'Bearer' || !token) {
-        console.log("Invalid authorization header format");
+    if (type !== 'Bearer' || !token || extra.length) {
+        // console.log("Invalid authorization header format");
         return res.status(401).json({ message: "Invalid format" });
     }
 
     try {
         const decoded = verifyAccess(token);
+
+        if (
+            !decoded.user_id ||
+            !decoded.device_id ||
+            !decoded.device_uuid
+        ) {
+            return res.status(401).json({
+                message: 'Invalid access token payload'
+            });
+        }
 
         req.user = {
             id: decoded.user_id
