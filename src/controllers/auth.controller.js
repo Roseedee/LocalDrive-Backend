@@ -176,8 +176,87 @@ exports.me = async (req, res) => {
 }
 
 exports.findReplaceableDevices = async (req, res) => {
-    console.log("userid from find replaceable device : ", req.user.id)
-    res.json({status: 'ok'})
+    try {
+        const devices = await deviceRepo.findByUserID(req.user.id);
+        return res.json({
+            devices: devices.map( device => ({
+                id: device.id,
+                name: device.device_name,
+                uuid: device.device_uuid,
+                type: device.type
+            }))
+        })
+    }catch (err) {
+        console.error("Find devices error: ", err)
+
+        return res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+exports.selectDevice = async (req, res) => {
+    try {
+        const userID = req.user.id;
+        const { deviceID, deviceName } = req.body;
+
+        let device;
+
+        if(deviceID) {
+            device = await deviceRepo.findByID(deviceID);
+
+            if(!device || String(device.user_id) !== String(userID)) {
+                return res.status(403).json({ message: "Device access denied"})
+            }
+        }else {
+            if(!deviceName || !deviceName.trim()) {
+                return res.status(400).json({ message: "Device name is required"})
+            }
+
+            const deviceUUID = crypto.randomUUID();
+
+            const lastInsertID = await deviceRepo.createDevice(userID, deviceUUID, deviceName);
+
+            device = await deviceRepo.findByUUID(deviceUUID);
+
+            if(!device || String(device.id) !== String(lastInsertID)) {
+                return res.status(500).json({ message: "Failed to create device"})
+            }
+        }
+
+        const accessToken = signAccess({
+            user_id: userID,
+            device_id: device.id,
+            device_uuid: device.device_uuid
+        })
+
+        const refreshToken = generateRefreshToken();
+        const hash = hashToken(refreshToken);
+
+        await tokenRepo.createToken(userID, device.device_uuid, hash, new Date(Date.now() + REFRESH_TOKEN_MS))
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: REFRESH_TOKEN_MS,
+            path: '/'
+        })
+
+        return res.json({
+            accessToken,
+            user: {
+                id: userID
+            },
+            device: {
+                id: device.id,
+                uuid: device.device_uuid,
+                name: device.name,
+            },
+        })
+
+    }catch(err) {
+        console.error("Select device error: ", err)
+        return res.status(500).json({ message: "Internal server error" })
+    }
 }
 
 exports.logout = async (req, res) => {

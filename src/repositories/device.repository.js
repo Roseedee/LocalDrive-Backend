@@ -6,7 +6,12 @@ exports.createDevice = async (userId, uuid, name) => {
 }
 
 exports.findByUUID = async (uuid) => {
-    const [result] = await db.execute(`SELECT * FROM devices WHERE device_uuid = ?`, [uuid]);
+    const [result] = await db.execute(`SELECT * FROM devices WHERE device_uuid = ? AND deleted_at IS NULL`, [uuid]);
+    return result[0];
+}
+
+exports.findByID = async (id) => {
+    const [result] = await db.execute(`SELECT * FROM devices WHERE id = ? AND deleted_at IS NULL`, [id])
     return result[0];
 }
 
